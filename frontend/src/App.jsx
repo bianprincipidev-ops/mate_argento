@@ -1,24 +1,32 @@
 import React, { useState, useEffect } from 'react'
 import CatalogoCliente from './components/CatalogoCliente'
 import PanelAdmin from './components/PanelAdmin'
+import ModalLogin from './components/ModalLogin'
 import { auth } from './firbebase';
 
-// 🔑 PONÉ ACÁ TU EMAIL EXACTO CON EL QUE TE VAS A LOGUEAR COMO ADMIN
-const EMAIL_ADMIN = "tu-email-de-administradora@gmail.com"; 
+const EMAIL_ADMIN = "colorhada2026@gmail.com";
 
 function App() {
   const [vista, setVista] = useState('cliente')
   const [usuario, setUsuario] = useState(null)
   const [cargandoAuth, setCargandoAuth] = useState(true)
 
+  // NUEVO: estado global del modal de login
+  const [mostrarModalLogin, setMostrarModalLogin] = useState(false)
+
   useEffect(() => {
     const desubscribir = auth.onAuthStateChanged((user) => {
       setUsuario(user)
       setCargandoAuth(false)
-      
+
       if (!user && window.location.pathname === '/admin') {
         setVista('cliente')
         window.history.pushState({}, '', '/')
+      }
+
+      // Si el usuario se loguea con éxito, cerramos el modal automáticamente
+      if (user) {
+        setMostrarModalLogin(false)
       }
     })
     return () => desubscribir()
@@ -45,11 +53,17 @@ function App() {
       {vista === 'admin' && esAdmin ? (
         <PanelAdmin alCambiarDeVista={navegarA} usuario={usuario} />
       ) : (
-        <CatalogoCliente 
-          alCambiarDeVista={navegarA} 
-          usuarioLogueado={usuario} 
-          esAdmin={esAdmin} 
+        <CatalogoCliente
+          alCambiarDeVista={navegarA}
+          usuarioLogueado={usuario}
+          esAdmin={esAdmin}
+          setMostrarModalLogin={setMostrarModalLogin}
         />
+      )}
+
+      {/* Modal de login global — se muestra encima de todo */}
+      {mostrarModalLogin && (
+        <ModalLogin onCerrar={() => setMostrarModalLogin(false)} />
       )}
     </>
   )

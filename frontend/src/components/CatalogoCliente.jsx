@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { ShoppingCart, Store, Package, Search, SlidersHorizontal, X, Plus, Minus, ShieldAlert, Trash2 } from 'lucide-react'
+import { ShoppingCart, Package, Search, SlidersHorizontal, X, Plus, Minus, Trash2, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react'
+import { auth } from '../firbebase'
+import { signOut } from 'firebase/auth'
 
-function CatalogoCliente({ alCambiarDeVista }) {
+// Ruta del logo — ajustá si lo guardás en otra carpeta
+import logo from '../assets/logo.png'
+
+function CatalogoCliente({ alCambiarDeVista, usuarioLogueado, esAdmin, setMostrarModalLogin }) {
   const [productos, setProductos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [cargando, setCargando] = useState(true)
-  
+
   const [busqueda, setBusqueda] = useState('')
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('todas')
   const [productoDetalle, setProductoDetalle] = useState(null)
   const [cantidad, setCantidad] = useState(1)
-  
-  // 🛒 NUEVOS ESTADOS PARA EL CARRITO
+
   const [carrito, setCarrito] = useState([])
   const [carritoAbierto, setCarritoAbierto] = useState(false)
 
@@ -31,18 +35,9 @@ function CatalogoCliente({ alCambiarDeVista }) {
       })
   }, [])
 
-  const abrirDetalle = (producto) => {
-    setProductoDetalle(producto)
-    setCantidad(1)
-  }
-
-  const incrementarCantidad = () => {
-    if (cantidad < productoDetalle.stock) setCantidad(cantidad + 1)
-  }
-
-  const decrementarCantidad = () => {
-    if (cantidad > 1) setCantidad(cantidad - 1)
-  }
+  const abrirDetalle = (producto) => { setProductoDetalle(producto); setCantidad(1) }
+  const incrementarCantidad = () => { if (cantidad < productoDetalle.stock) setCantidad(cantidad + 1) }
+  const decrementarCantidad = () => { if (cantidad > 1) setCantidad(cantidad - 1) }
 
   const agregarAlCarrito = (producto, cantidadAAgregar) => {
     setCarrito((carritoActual) => {
@@ -64,31 +59,37 @@ function CatalogoCliente({ alCambiarDeVista }) {
     setProductoDetalle(null)
   }
 
-  // 🔄 FUNCIONES PARA MODIFICAR CANTIDADES ADENTRO DEL CARRITO
   const cambiarCantidadCarrito = (id, delta) => {
-    setCarrito((carritoActual) => 
+    setCarrito((carritoActual) =>
       carritoActual.map((item) => {
         if (item.id === id) {
           const nuevaCant = item.cantidadEnCarrito + delta
-          if (nuevaCant > item.stock) {
-            alert(`No hay más stock disponible de este modelo.`)
-            return item
-          }
+          if (nuevaCant > item.stock) { alert(`No hay más stock disponible.`); return item }
           return { ...item, cantidadEnCarrito: nuevaCant }
         }
         return item
-      }).filter((item) => item.cantidadEnCarrito > 0) // Si llega a 0, se elimina automáticamente
-    );
-  };
+      }).filter((item) => item.cantidadEnCarrito > 0)
+    )
+  }
 
-  const eliminarDelCarrito = (id) => {
-    setCarrito((carritoActual) => carritoActual.filter(item => item.id !== id));
-  };
+  const eliminarDelCarrito = (id) => setCarrito((c) => c.filter(item => item.id !== id))
 
   const totalItemsEnCarrito = carrito.reduce((acc, item) => acc + item.cantidadEnCarrito, 0)
-  
-  // Calcular el precio total final
   const precioTotalCarrito = carrito.reduce((acc, item) => acc + (parseFloat(item.precio_minorista) * item.cantidadEnCarrito), 0)
+
+  const handleCerrarSesion = async () => { await signOut(auth) }
+
+  const enviarPedidoWhatsApp = () => {
+    if (!usuarioLogueado) { setCarritoAbierto(false); setMostrarModalLogin(true); return }
+    const telefono = "5493584307268"
+    let mensaje = "¡Hola! Me gustaría hacer el siguiente pedido:\n\n"
+    carrito.forEach(item => {
+      mensaje += `- ${item.nombre} (Cantidad: ${item.cantidadEnCarrito}) - $${(parseFloat(item.precio_minorista) * item.cantidadEnCarrito).toLocaleString('es-AR')}\n`
+    })
+    mensaje += `\n*Total: $${precioTotalCarrito.toLocaleString('es-AR')}*`
+    mensaje += `\n\nCliente: ${usuarioLogueado.displayName || usuarioLogueado.email}`
+    window.open(`https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`, '_blank')
+  }
 
   const productosFiltrados = productos.filter((producto) => {
     const coincideBusqueda = producto.nombre.toLowerCase().includes(busqueda.toLowerCase())
@@ -96,64 +97,119 @@ function CatalogoCliente({ alCambiarDeVista }) {
     return coincideBusqueda && coincideCategoria
   })
 
-  // Enviar pedido por WhatsApp
-  const enviarPedidoWhatsApp = () => {
-    let mensaje = `*¡Hola Mate Argento! Quisiera hacer el siguiente pedido:*%0A%0A`;
-    carrito.forEach(item => {
-      mensaje += `• ${item.cantidadEnCarrito}x ${item.nombre} ($${parseFloat(item.precio_minorista).toLocaleString('es-AR')} c/u)%0A`;
-    });
-    mensaje += `%0A*Total estimado: $${precioTotalCarrito.toLocaleString('es-AR')}*`;
-    
-    // Cambiá este número por el tuyo real (con código de país sin el +)
-    const tuNumeroTelefono = "5493584307268"; 
-    window.open(`https://wa.me/${tuNumeroTelefono}?text=${mensaje}`, '_blank');
-  };
-
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 flex flex-col relative">
-      {/* Navbar Superior */}
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-40">
+    <div className="min-h-screen text-neutral-900 flex flex-col relative" style={{ backgroundColor: '#F7F9FC' }}>
+
+      {/* ── NAVBAR ── */}
+      <header className="bg-white border-b sticky top-0 z-40 shadow-sm" style={{ borderColor: '#D6E8F5' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Store className="h-6 w-6 text-amber-800" />
-            <span className="text-xl font-black text-amber-950 tracking-tight">MATE ARGENTO</span>
+
+          {/* Logo + nombre */}
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Mate Argento" className="h-10 w-10 rounded-full object-cover" />
+            <span className="text-xl font-black tracking-tight" style={{ color: '#1A5C8A' }}>
+              MATE ARGENTO
+            </span>
           </div>
-          
-          {/* Al hacer click, cambia a true y abre el panel lateral */}
-          <button 
-            onClick={() => setCarritoAbierto(true)}
-            className="relative p-2 text-neutral-600 hover:text-amber-800 transition-colors group"
-          >
-            <ShoppingCart className="h-6 w-6 group-hover:scale-105 transition-transform" />
-            {totalItemsEnCarrito > 0 && (
-              <span className="absolute top-0 right-0 bg-amber-700 text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center">
-                {totalItemsEnCarrito}
-              </span>
+
+          {/* Zona derecha */}
+          <div className="flex items-center gap-2">
+            {usuarioLogueado ? (
+              <div className="flex items-center gap-2">
+                {/* Pastilla usuario */}
+                <div className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-1.5 border" style={{ backgroundColor: '#EEF6FD', borderColor: '#B8D9F0' }}>
+                  {usuarioLogueado.photoURL ? (
+                    <img src={usuarioLogueado.photoURL} alt="" className="h-5 w-5 rounded-full object-cover" />
+                  ) : (
+                    <User className="h-4 w-4" style={{ color: '#5BA4CF' }} />
+                  )}
+                  <span className="text-xs font-bold max-w-30 truncate" style={{ color: '#1A5C8A' }}>
+                    {usuarioLogueado.displayName || usuarioLogueado.email}
+                  </span>
+                </div>
+
+                {/* Botón admin */}
+                {esAdmin && (
+                  <button
+                    onClick={() => alCambiarDeVista('admin')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
+                    style={{ color: '#8B5E3C', backgroundColor: '#FDF4EC', borderColor: '#E8C99A' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F5E6D0'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FDF4EC'}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span className="hidden sm:inline">Panel Admin</span>
+                  </button>
+                )}
+
+                {/* Cerrar sesión */}
+                <button
+                  onClick={handleCerrarSesion}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-transparent transition-all text-neutral-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Salir</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setMostrarModalLogin(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
+                style={{ color: '#1A5C8A', backgroundColor: '#EEF6FD', borderColor: '#B8D9F0' }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#D6E8F5'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#EEF6FD'}
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="hidden sm:inline">Iniciar sesión</span>
+              </button>
             )}
-          </button>
+
+            {/* Carrito */}
+            <button
+              onClick={() => setCarritoAbierto(true)}
+              className="relative p-2 transition-colors group rounded-xl"
+              style={{ color: '#5BA4CF' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#1A5C8A'}
+              onMouseLeave={e => e.currentTarget.style.color = '#5BA4CF'}
+            >
+              <ShoppingCart className="h-6 w-6 group-hover:scale-105 transition-transform" />
+              {totalItemsEnCarrito > 0 && (
+                <span className="absolute top-0 right-0 text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5A623' }}>
+                  {totalItemsEnCarrito}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Contenido principal */}
+      {/* ── MAIN ── */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-16">
+
         {/* Filtros */}
-        <div className="bg-white border border-neutral-200 rounded-2xl p-4 mb-8 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="bg-white border rounded-2xl p-4 mb-8 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between" style={{ borderColor: '#D6E8F5' }}>
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#5BA4CF' }} />
             <input
               type="text"
               placeholder="Buscar tu mate..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-hidden focus:border-amber-700 focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2 border rounded-xl text-sm focus:outline-none transition-all"
+              style={{ backgroundColor: '#F7F9FC', borderColor: '#D6E8F5' }}
+              onFocus={e => { e.target.style.borderColor = '#5BA4CF'; e.target.style.backgroundColor = '#fff' }}
+              onBlur={e => { e.target.style.borderColor = '#D6E8F5'; e.target.style.backgroundColor = '#F7F9FC' }}
             />
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-none">
-            <SlidersHorizontal className="h-4 w-4 text-neutral-400 shrink-0 hidden sm:inline" />
+            <SlidersHorizontal className="h-4 w-4 shrink-0 hidden sm:inline" style={{ color: '#5BA4CF' }} />
             <button
               onClick={() => setCategoriaSeleccionada('todas')}
-              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${categoriaSeleccionada === 'todas' ? 'bg-amber-800 text-white' : 'bg-neutral-100 text-neutral-600'}`}
+              className="text-xs font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap"
+              style={categoriaSeleccionada === 'todas'
+                ? { backgroundColor: '#1A5C8A', color: '#fff' }
+                : { backgroundColor: '#EEF6FD', color: '#5BA4CF' }}
             >
               Todos
             </button>
@@ -161,7 +217,10 @@ function CatalogoCliente({ alCambiarDeVista }) {
               <button
                 key={cat.id}
                 onClick={() => setCategoriaSeleccionada(cat.nombre)}
-                className={`text-xs font-bold px-4 py-2 rounded-xl transition-all ${categoriaSeleccionada === cat.nombre ? 'bg-amber-800 text-white' : 'bg-neutral-100 text-neutral-600'}`}
+                className="text-xs font-bold px-4 py-2 rounded-xl transition-all whitespace-nowrap"
+                style={categoriaSeleccionada === cat.nombre
+                  ? { backgroundColor: '#1A5C8A', color: '#fff' }
+                  : { backgroundColor: '#EEF6FD', color: '#5BA4CF' }}
               >
                 {cat.nombre}
               </button>
@@ -171,41 +230,59 @@ function CatalogoCliente({ alCambiarDeVista }) {
 
         {/* Grid de Productos */}
         {cargando ? (
-          <div className="text-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-800 mx-auto mb-2"></div>Cargando...</div>
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{ borderColor: '#5BA4CF' }}></div>
+            <span className="text-sm" style={{ color: '#5BA4CF' }}>Cargando...</span>
+          </div>
         ) : productosFiltrados.length === 0 ? (
-          <div className="text-center py-20 bg-white border border-dashed rounded-2xl"><Package className="h-10 w-10 text-neutral-300 mx-auto mb-3" /><p className="text-sm text-neutral-500">No hay productos.</p></div>
+          <div className="text-center py-20 bg-white border border-dashed rounded-2xl" style={{ borderColor: '#B8D9F0' }}>
+            <Package className="h-10 w-10 mx-auto mb-3" style={{ color: '#B8D9F0' }} />
+            <p className="text-sm text-neutral-500">No hay productos.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {productosFiltrados.map((producto) => (
-              <div key={producto.id} className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-                <div onClick={() => abrirDetalle(producto)} className="aspect-square bg-neutral-100 relative overflow-hidden group cursor-pointer">
-                  {producto.imagen_url ? <img src={producto.imagen_url} alt={producto.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /> : <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">Sin imagen</div>}
-                  <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">{producto.categoria_nombre}</span>
+              <div key={producto.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col" style={{ borderColor: '#D6E8F5' }}>
+                <div onClick={() => abrirDetalle(producto)} className="aspect-square relative overflow-hidden group cursor-pointer" style={{ backgroundColor: '#EEF6FD' }}>
+                  {producto.imagen_url
+                    ? <img src={producto.imagen_url} alt={producto.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    : <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: '#5BA4CF' }}>Sin imagen</div>
+                  }
+                  <span className="absolute top-3 left-3 bg-white/90 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase" style={{ color: '#1A5C8A' }}>
+                    {producto.categoria_nombre}
+                  </span>
                 </div>
+
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <h3 onClick={() => abrirDetalle(producto)} className="font-bold text-neutral-950 text-base line-clamp-1 mb-1 cursor-pointer hover:text-amber-800">{producto.nombre}</h3>
+                    <h3 onClick={() => abrirDetalle(producto)} className="font-bold text-base line-clamp-1 mb-1 cursor-pointer transition-colors hover:text-[#1A5C8A] text-neutral-950">
+                      {producto.nombre}
+                    </h3>
                     <p className="text-neutral-500 text-xs line-clamp-2 min-h-8 mb-4">{producto.descripcion || 'Sin descripción.'}</p>
                   </div>
                   <div>
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-lg font-black text-amber-900">
-                        <span>$</span>
-                        <span>{parseFloat(producto.precio_minorista).toLocaleString('es-AR')}</span>
+                      <span className="text-lg font-black" style={{ color: '#8B5E3C' }}>
+                        ${parseFloat(producto.precio_minorista).toLocaleString('es-AR')}
                       </span>
                       <span className="text-[11px] text-neutral-400">
-                        <span>(May: $</span>
-                        <span>{parseFloat(producto.precio_mayorista).toLocaleString('es-AR')}</span>
-                        <span>)</span>
+                        (May: ${parseFloat(producto.precio_mayorista).toLocaleString('es-AR')})
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-3 pt-2 border-t border-neutral-100">
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        <span>Stock: </span>
-                        <span>{producto.stock}</span>
-                        <span> u.</span>
+                    <div className="flex items-center justify-between gap-3 pt-2 border-t" style={{ borderColor: '#EEF6FD' }}>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md" style={{ color: '#3A7D44', backgroundColor: '#EAF5EC' }}>
+                        Stock: {producto.stock} u.
                       </span>
-                      <button disabled={producto.stock <= 0} onClick={() => agregarAlCarrito(producto, 1)} className="bg-amber-800 hover:bg-amber-900 text-white text-xs font-bold px-3 py-2 rounded-xl disabled:bg-neutral-200">Agregar</button>
+                      <button
+                        disabled={producto.stock <= 0}
+                        onClick={() => agregarAlCarrito(producto, 1)}
+                        className="text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors disabled:bg-neutral-200 disabled:text-neutral-400"
+                        style={{ backgroundColor: '#1A5C8A' }}
+                        onMouseEnter={e => { if (producto.stock > 0) e.currentTarget.style.backgroundColor = '#144A72' }}
+                        onMouseLeave={e => { if (producto.stock > 0) e.currentTarget.style.backgroundColor = '#1A5C8A' }}
+                      >
+                        Agregar
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -215,25 +292,24 @@ function CatalogoCliente({ alCambiarDeVista }) {
         )}
       </main>
 
-      {/* 🛒 SIDEBAR LATERAL DEL CARRITO */}
+      {/* ── SIDEBAR CARRITO ── */}
       {carritoAbierto && (
         <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Fondo oscuro traslúcido */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity" onClick={() => setCarritoAbierto(false)}></div>
-          
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setCarritoAbierto(false)}></div>
           <div className="absolute inset-y-0 right-0 pl-10 max-w-full flex">
             <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
-              {/* Header del carrito */}
-              <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-lg font-black text-neutral-950 flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-amber-800" /> Mi Carrito
+
+              {/* Header carrito */}
+              <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: '#D6E8F5' }}>
+                <h2 className="text-lg font-black flex items-center gap-2" style={{ color: '#1A5C8A' }}>
+                  <ShoppingCart className="h-5 w-5" style={{ color: '#5BA4CF' }} /> Mi Carrito
                 </h2>
                 <button onClick={() => setCarritoAbierto(false)} className="p-2 hover:bg-neutral-100 rounded-full transition-colors">
                   <X className="h-5 w-5 text-neutral-500" />
                 </button>
               </div>
 
-              {/* Lista de productos dentro del carrito */}
+              {/* Items */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {carrito.length === 0 ? (
                   <div className="text-center py-20 text-neutral-400">
@@ -243,23 +319,21 @@ function CatalogoCliente({ alCambiarDeVista }) {
                   </div>
                 ) : (
                   carrito.map((item) => (
-                    <div key={item.id} className="flex gap-4 p-3 bg-neutral-50 border rounded-xl relative">
-                      <div className="h-16 w-16 bg-neutral-200 rounded-lg overflow-hidden shrink-0">
+                    <div key={item.id} className="flex gap-4 p-3 border rounded-xl relative" style={{ backgroundColor: '#F7F9FC', borderColor: '#D6E8F5' }}>
+                      <div className="h-16 w-16 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: '#EEF6FD' }}>
                         {item.imagen_url && <img src={item.imagen_url} alt="" className="h-full w-full object-cover" />}
                       </div>
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-sm text-neutral-900 line-clamp-1 pr-6">{item.nombre}</span>
-                          <span className="text-xs text-amber-900 font-black block mt-0.5">
-                            <span>$</span>
-                            <span>{parseFloat(item.precio_minorista).toLocaleString('es-AR')}</span>
+                          <span className="text-xs font-black block mt-0.5" style={{ color: '#8B5E3C' }}>
+                            ${parseFloat(item.precio_minorista).toLocaleString('es-AR')}
                           </span>
                         </div>
-                        {/* Controles de cantidad */}
                         <div className="flex items-center gap-2 mt-2">
-                          <button onClick={() => cambiarCantidadCarrito(item.id, -1)} className="p-1 rounded-md bg-white border hover:bg-neutral-100"><Minus className="h-3 w-3" /></button>
+                          <button onClick={() => cambiarCantidadCarrito(item.id, -1)} className="p-1 rounded-md bg-white border hover:bg-neutral-100" style={{ borderColor: '#D6E8F5' }}><Minus className="h-3 w-3" /></button>
                           <span className="text-xs font-black w-6 text-center">{item.cantidadEnCarrito}</span>
-                          <button onClick={() => cambiarCantidadCarrito(item.id, 1)} className="p-1 rounded-md bg-white border hover:bg-neutral-100"><Plus className="h-3 w-3" /></button>
+                          <button onClick={() => cambiarCantidadCarrito(item.id, 1)} className="p-1 rounded-md bg-white border hover:bg-neutral-100" style={{ borderColor: '#D6E8F5' }}><Plus className="h-3 w-3" /></button>
                         </div>
                       </div>
                       <button onClick={() => eliminarDelCarrito(item.id)} className="absolute top-3 right-3 text-neutral-400 hover:text-rose-600 transition-colors">
@@ -270,21 +344,37 @@ function CatalogoCliente({ alCambiarDeVista }) {
                 )}
               </div>
 
-              {/* Footer con el total y botón de checkout */}
+              {/* Footer carrito */}
               {carrito.length > 0 && (
-                <div className="p-6 border-t bg-neutral-50">
+                <div className="p-6 border-t" style={{ borderColor: '#D6E8F5', backgroundColor: '#F7F9FC' }}>
                   <div className="flex justify-between items-baseline mb-4">
                     <span className="text-sm font-bold text-neutral-500">Subtotal</span>
-                    <span className="text-xl font-black text-neutral-950">
-                      <span>$</span>
-                      <span>{precioTotalCarrito.toLocaleString('es-AR')}</span>
+                    <span className="text-xl font-black" style={{ color: '#1A5C8A' }}>
+                      ${precioTotalCarrito.toLocaleString('es-AR')}
                     </span>
                   </div>
-                  <button 
+
+                  {!usuarioLogueado && (
+                    <p className="text-xs text-center text-neutral-500 mb-3">
+                      Necesitás{' '}
+                      <button
+                        onClick={() => { setCarritoAbierto(false); setMostrarModalLogin(true) }}
+                        className="font-bold hover:underline" style={{ color: '#1A5C8A' }}
+                      >
+                        iniciar sesión
+                      </button>
+                      {' '}para finalizar tu pedido.
+                    </p>
+                  )}
+
+                  <button
                     onClick={enviarPedidoWhatsApp}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all shadow-md text-center block"
+                    className="w-full text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all shadow-md"
+                    style={{ backgroundColor: '#25D366' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1fba59'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#25D366'}
                   >
-                    Pedir por WhatsApp
+                    {usuarioLogueado ? 'Pedir por WhatsApp' : 'Iniciá sesión para pedir'}
                   </button>
                 </div>
               )}
@@ -293,57 +383,69 @@ function CatalogoCliente({ alCambiarDeVista }) {
         </div>
       )}
 
-      {/* MODAL DE DETALLE */}
+      {/* ── MODAL DETALLE ── */}
       {productoDetalle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="absolute inset-0" onClick={() => setProductoDetalle(null)}></div>
           <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl relative z-10 flex flex-col md:flex-row">
-            <button onClick={() => setProductoDetalle(null)} className="absolute top-4 right-4 z-20 bg-white/80 p-2 rounded-full border shadow-xs"><X className="h-4 w-4" /></button>
-            <div className="w-full md:w-1/2 aspect-square bg-neutral-50">
-              {productoDetalle.imagen_url ? <img src={productoDetalle.imagen_url} alt={productoDetalle.nombre} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-neutral-400">Sin imagen</div>}
+            <button onClick={() => setProductoDetalle(null)} className="absolute top-4 right-4 z-20 bg-white/80 p-2 rounded-full border shadow-xs" style={{ borderColor: '#D6E8F5' }}>
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="w-full md:w-1/2 aspect-square" style={{ backgroundColor: '#EEF6FD' }}>
+              {productoDetalle.imagen_url
+                ? <img src={productoDetalle.imagen_url} alt={productoDetalle.nombre} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-neutral-400">Sin imagen</div>
+              }
             </div>
+
             <div className="w-full md:w-1/2 p-6 flex flex-col justify-between bg-white">
               <div>
-                <span className="text-[10px] font-extrabold bg-amber-50 text-amber-900 px-2.5 py-1 rounded-md uppercase tracking-wider mb-3 inline-block">{productoDetalle.categoria_nombre}</span>
+                <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider mb-3 inline-block" style={{ backgroundColor: '#EEF6FD', color: '#1A5C8A' }}>
+                  {productoDetalle.categoria_nombre}
+                </span>
                 <h2 className="text-xl font-black text-neutral-950 mb-2">{productoDetalle.nombre}</h2>
-                <div className="border-t pt-4 mb-6">
-                  <h4 className="text-xs font-bold text-neutral-400 uppercase mb-2">Descripción</h4>
+                <div className="border-t pt-4 mb-6" style={{ borderColor: '#EEF6FD' }}>
+                  <h4 className="text-xs font-bold uppercase mb-2" style={{ color: '#5BA4CF' }}>Descripción</h4>
                   <p className="text-sm text-neutral-600 max-h-30 overflow-y-auto">{productoDetalle.descripcion || 'Sin descripción.'}</p>
                 </div>
               </div>
-              <div className="border-t pt-4">
+
+              <div className="border-t pt-4" style={{ borderColor: '#EEF6FD' }}>
                 <div className="flex flex-col gap-1 mb-4">
-                  <span className="text-2xl font-black text-amber-950">
-                    <span>$</span>
-                    <span>{parseFloat(productoDetalle.precio_minorista).toLocaleString('es-AR')}</span>
+                  <span className="text-2xl font-black" style={{ color: '#8B5E3C' }}>
+                    ${parseFloat(productoDetalle.precio_minorista).toLocaleString('es-AR')}
                   </span>
                   <span className="text-xs text-neutral-500">
-                    <span>Por mayor: </span>
-                    <span className="font-bold">
-                      <span>$</span>
-                      <span>{parseFloat(productoDetalle.precio_mayorista).toLocaleString('es-AR')}</span>
-                    </span>
+                    Por mayor: <span className="font-bold" style={{ color: '#8B5E3C' }}>${parseFloat(productoDetalle.precio_mayorista).toLocaleString('es-AR')}</span>
                   </span>
                 </div>
+
                 {productoDetalle.stock > 0 && (
-                  <div className="flex items-center gap-3 mb-4 bg-neutral-50 p-2 rounded-xl border w-fit">
-                    <span className="text-xs font-bold text-neutral-500 px-2">Cantidad:</span>
+                  <div className="flex items-center gap-3 mb-4 p-2 rounded-xl border w-fit" style={{ backgroundColor: '#F7F9FC', borderColor: '#D6E8F5' }}>
+                    <span className="text-xs font-bold px-2" style={{ color: '#5BA4CF' }}>Cantidad:</span>
                     <div className="flex items-center gap-1">
-                      <button onClick={decrementarCantidad} disabled={cantidad <= 1} className="p-1.5 rounded-lg bg-white border"><Minus className="h-3.5 w-3.5" /></button>
+                      <button onClick={decrementarCantidad} disabled={cantidad <= 1} className="p-1.5 rounded-lg bg-white border" style={{ borderColor: '#D6E8F5' }}><Minus className="h-3.5 w-3.5" /></button>
                       <span className="w-8 text-center text-sm font-black">{cantidad}</span>
-                      <button onClick={incrementarCantidad} disabled={cantidad >= productoDetalle.stock} className="p-1.5 rounded-lg bg-white border"><Plus className="h-3.5 w-3.5" /></button>
+                      <button onClick={incrementarCantidad} disabled={cantidad >= productoDetalle.stock} className="p-1.5 rounded-lg bg-white border" style={{ borderColor: '#D6E8F5' }}><Plus className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                 )}
+
                 <div className="flex items-center justify-between gap-4">
-                  <span className={`text-xs font-bold ${productoDetalle.stock > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {productoDetalle.stock > 0 ? (
-                      <span>{productoDetalle.stock} disponibles</span>
-                    ) : (
-                      <span>Sin stock</span>
-                    )}
+                  <span className={`text-xs font-bold ${productoDetalle.stock > 0 ? '' : 'text-rose-600'}`} style={productoDetalle.stock > 0 ? { color: '#3A7D44' } : {}}>
+                    {productoDetalle.stock > 0 ? `${productoDetalle.stock} disponibles` : 'Sin stock'}
                   </span>
-                  <button disabled={productoDetalle.stock <= 0} onClick={() => agregarAlCarrito(productoDetalle, cantidad)} className="bg-amber-800 hover:bg-amber-900 text-white text-sm font-bold px-5 py-3 rounded-xl">Agregar al carrito</button>
+                  <button
+                    disabled={productoDetalle.stock <= 0}
+                    onClick={() => agregarAlCarrito(productoDetalle, cantidad)}
+                    className="text-white text-sm font-bold px-5 py-3 rounded-xl disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors"
+                    style={{ backgroundColor: '#1A5C8A' }}
+                    onMouseEnter={e => { if (productoDetalle.stock > 0) e.currentTarget.style.backgroundColor = '#144A72' }}
+                    onMouseLeave={e => { if (productoDetalle.stock > 0) e.currentTarget.style.backgroundColor = '#1A5C8A' }}
+                  >
+                    Agregar al carrito
+                  </button>
                 </div>
               </div>
             </div>
