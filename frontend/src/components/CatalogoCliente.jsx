@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ShoppingCart, Package, Search, SlidersHorizontal, X, Plus, Minus, Trash2, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react'
-import { auth } from '../firbebase'
+import { auth } from '../firebase'
 import { signOut } from 'firebase/auth'
 
 // Ruta del logo — ajustá si lo guardás en otra carpeta

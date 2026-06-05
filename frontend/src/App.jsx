@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import CatalogoCliente from './components/CatalogoCliente'
 import PanelAdmin from './components/PanelAdmin'
 import ModalLogin from './components/ModalLogin'
-import { auth } from './firbebase';
+import { auth } from './firebase';
 
 const EMAIL_ADMIN = "colorhada2026@gmail.com";
 

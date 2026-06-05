@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { X, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { auth } from '../firbebase'
+import { auth } from '../firebase'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -66,7 +66,7 @@ function ModalLogin({ onCerrar }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onCerrar} />
 
       <div className="relative z-10 bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden" style={{ border: '1px solid #D6E8F5' }}>
