@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Servir los archivos estáticos que están en la misma carpeta public_html
+// 1. Servir explícitamente la carpeta assets y luego el resto de los estáticos de la raíz
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(express.static(__dirname));
 
 // Helper para encontrar la base de datos de manera flexible en local y producción
@@ -154,6 +155,7 @@ app.delete('/api/productos/:id', (req, res) => {
 });
 
 // --- RUTA FRONTEND ---
+// Cualquier ruta que no coincida con la API servirá el index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
