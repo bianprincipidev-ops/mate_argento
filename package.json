@@ -1,0 +1,12 @@
+{
+  "name": "mate-argento-fullstack",
+  "version": "1.0.0",
+  "description": "E-commerce Mate Argento con Node.js y React",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
