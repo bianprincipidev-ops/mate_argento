@@ -1,0 +1,19 @@
+# Desactivar MultiViews para evitar conflictos de nombres
+Options -MultiViews
+
+RewriteEngine On
+
+# 1. Si la petición pide un archivo real que existe, servirlo sin tocar nada
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# 2. Si la petición pide un directorio real, servirlo sin tocar nada
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 3. Si la petición va a la API de Node (server.js), dejar que la maneje
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
+RewriteRule ^(.*)$ server.js [L]
+
+# 4. Para cualquier otra ruta (React Router), enviar todo al index.html
+RewriteRule ^(.*)$ index.html [L]

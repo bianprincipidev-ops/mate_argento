@@ -6,23 +6,21 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-const distPath = fs.existsSync(path.join(__dirname, 'frontend', 'dist'))
-    ? path.join(__dirname, 'frontend', 'dist')
-    : path.join(__dirname, 'dist');
+// Servir los archivos estáticos que están en la misma carpeta public_html
+app.use(express.static(__dirname));
 
-app.use(express.static(distPath));
-
-// Helper para encontrar la base de datos de manera flexible
+// Helper para encontrar la base de datos de manera flexible en local y producción
 const getDBPath = () => {
-    const localBackendPath = path.join(__dirname, 'backend', 'datos_tienda.json');
-    if (fs.existsSync(localBackendPath)) {
-        return localBackendPath;
-    }
-    return path.join(__dirname, 'datos_tienda.json'); // Por si en producción quedó suelto en la raíz
+    const localPath = path.join(__dirname, 'datos_tienda.json');
+    if (fs.existsSync(localPath)) return localPath;
+    return path.join(__dirname, 'backend', 'datos_tienda.json');
 };
 
 const readDB = () => {
     const dbPath = getDBPath();
+    if (!fs.existsSync(dbPath)) {
+        return []; // Retorna un array vacío si el archivo JSON aún no se creó
+    }
     const fileData = fs.readFileSync(dbPath, 'utf8');
     return JSON.parse(fileData);
 };
@@ -32,7 +30,7 @@ const writeDB = (data) => {
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
 };
 
-// --- ENDPOINTS DE TU API ---
+// --- ENDPOINTS ---
 
 // 1. Obtener Categorías
 app.get('/api/categorias', (req, res) => {
@@ -155,11 +153,11 @@ app.delete('/api/productos/:id', (req, res) => {
     }
 });
 
-// --- ENRUTAMIENTO FRONTEND (Evita 404 de React Router) ---
+// --- RUTA FRONTEND ---
 app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log(`Servidor de Mate Argento corriendo en el puerto ${PORT}`);
 });
