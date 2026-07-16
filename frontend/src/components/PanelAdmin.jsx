@@ -10,8 +10,8 @@ function PanelAdmin({ alCambiarDeVista }) {
   const [guardando, setGuardando] = useState(false)
   const [formulario, setFormulario] = useState(null)
 
-  const URL_API = 'http://127.0.0.1:8000/api/productos/'
-  const URL_CAT = 'http://127.0.0.1:8000/api/categorias/'
+  const URL_API = '/api/productos';
+  const URL_CAT = '/api/categorias';
 
   const cargarDatos = () => {
     setCargando(true)
@@ -38,7 +38,10 @@ function PanelAdmin({ alCambiarDeVista }) {
     e.preventDefault()
     setGuardando(true)
     const esEdicion = Boolean(formulario.id)
-    fetch(esEdicion ? `${URL_API}${formulario.id}/` : URL_API, {
+
+    const urlDestino = esEdicion ? `${URL_API}/${formulario.id}` : URL_API;
+
+    fetch(urlDestino, {
       method: esEdicion ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formulario)
@@ -55,7 +58,7 @@ function PanelAdmin({ alCambiarDeVista }) {
 
   const eliminarProducto = (id, nombre) => {
     if (window.confirm(`¿Estás segura de que querés eliminar "${nombre}"?`)) {
-      fetch(`${URL_API}${id}/`, { method: 'DELETE' })
+      fetch(`${URL_API}/${id}`, { method: 'DELETE' })
         .then(res => { if (!res.ok) throw new Error('No se pudo eliminar'); cargarDatos() })
         .catch(err => alert(err.message))
     }

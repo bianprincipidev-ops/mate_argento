@@ -21,8 +21,8 @@ function CatalogoCliente({ alCambiarDeVista, usuarioLogueado, esAdmin, setMostra
 
   useEffect(() => {
     Promise.all([
-      fetch('http://127.0.0.1:8000/api/productos/').then(res => res.json()),
-      fetch('http://127.0.0.1:8000/api/categorias/').then(res => res.json()).catch(() => [])
+      fetch('/api/productos').then(res => res.json()), 
+      fetch('/api/categorias').then(res => res.json()).catch(() => []) 
     ])
       .then(([dataProductos, dataCategorias]) => {
         setProductos(dataProductos)
